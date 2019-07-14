@@ -53,19 +53,10 @@ def main(increment: int, processes: int):
         primes = set()
         for i in r:
             primes = primes.union(i)
-
-    # # Look for prime numbers
-    # primes = set()
-    # c = PrimeChecker()
-    # try:
-    #     for i in range(lastchecked, lastchecked + increment + 1):
-    #         lastchecked = i
-    #         if c.check_prime(i):
-    #             primes.add(i)
-    # except KeyboardInterrupt:
-    #     lastchecked -= 1
+        print("Found: %d" % len(primes))
 
     # Load history file
+    print("Writing results to file...")
     try:
         with open(primename, "r") as primefile:
             data = set(json.load(primefile))
@@ -73,10 +64,7 @@ def main(increment: int, processes: int):
         data = set()
 
     # Merge history and new primes
-    print("Found: %d" % len(primes))
     data = sorted(data.union(primes))
-    # for i in data:
-    #     print(i)
 
     # Write prime numbers and last checked number to file
     with open(primename, "w") as primefile:

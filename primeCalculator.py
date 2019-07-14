@@ -36,8 +36,6 @@ def main(increment: int, processes: int):
         lastchecked, lastchecked + increment))
 
     # Multiprocessing
-    # processes = os.cpu_count()
-    # processes = math.floor(os.cpu_count()*0.5)
     print("Processes: %d" % processes)
     with Pool(processes) as p:
         step = math.floor((lastchecked + increment) / processes)
@@ -89,9 +87,13 @@ def main(increment: int, processes: int):
 
 
 if __name__ == "__main__":
+    process_choices = []
+    for i in range(1, os.cpu_count() + 1):
+        process_choices.append(i)
     parser = argparse.ArgumentParser()
     parser.add_argument("--increment", type=int, default=1000)
     parser.add_argument("--processes", type=int,
-                        default=math.floor(os.cpu_count() * 0.5))
+                        default=math.floor(os.cpu_count() * 0.5),
+                        choices=process_choices)
     args = parser.parse_args()
     sys.exit(main(args.increment, args.processes))

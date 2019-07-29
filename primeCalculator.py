@@ -38,15 +38,18 @@ def main(increment: int, processes: int):
     # Multiprocessing
     print("Processes: %d" % processes)
     with Pool(processes) as p:
-        step = math.floor((lastchecked + increment) / processes)
-        bounds = []
-        for i in range(lastchecked, lastchecked + increment, step):
-            bounds.append(i)
-        lastchecked = lastchecked + increment
-        bounds[len(bounds) - 1] = lastchecked
-        args = []
-        for i in range(0, len(bounds) - 1):
-            args.append({"start": bounds[i], "end": bounds[i + 1]})
+        if processes == 1:
+            args = [{"start": lastchecked, "end": lastchecked+increment}]
+        else:
+            step = math.floor((lastchecked + increment) / processes)
+            bounds = []
+            for i in range(lastchecked, lastchecked + increment, step):
+                bounds.append(i)
+            lastchecked = lastchecked + increment
+            bounds[len(bounds) - 1] = lastchecked
+            args = []
+            for i in range(0, len(bounds) - 1):
+                args.append({"start": bounds[i], "end": bounds[i + 1]})
         r = p.imap_unordered(primeworker, args)
         p.close()
         p.join()
@@ -83,5 +86,5 @@ if __name__ == "__main__":
     parser.add_argument("--processes", type=int,
                         default=math.floor(os.cpu_count() * 0.5),
                         choices=process_choices)
-    args = parser.parse_args()
-    sys.exit(main(args.increment, args.processes))
+    kwargs = parser.parse_args()
+    sys.exit(main(kwargs.increment, kwargs.processes))

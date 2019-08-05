@@ -16,6 +16,7 @@ maxStep = 1000000
 
 
 def primeworker(arg):
+    print(arg["start"], end='\r', flush=True)
     primes = set()
     c = PrimeChecker()
     for i in range(arg["start"], arg["end"]):
@@ -47,30 +48,35 @@ def main(increment: int, processes: int, cuda: bool):
                 "ERROR: lastchecked plus increment (%d) must be less than %d" % (
                     (lastchecked + increment), uint64max))
         # Check numbers, break up into groups of [maxStep]
-        part = increment // maxStep
-        remainder = increment % (maxStep * part)
+        if increment > maxStep:
+            part = increment // maxStep
+            remainder = increment % (maxStep * part)
+        else:
+            part = 0
+            remainder = increment
         if not remainder:
             args = []
         else:
-            tmp = np.array([lastchecked, lastchecked + remainder], dtype='uint64')
+            tmp = np.array([lastchecked, lastchecked + remainder],
+                           dtype='uint64')
             args = [tmp]
         primes = set()
         for i in range(part):
             try:
-                last = max(args[len(args)-1])
+                last = max(args[len(args) - 1])
             except IndexError:
                 last = lastchecked
             tmp = np.array([last, last + maxStep], dtype='uint64')
             args.append(tmp)
+        lastchecked = int(args[len(args)-1][1])
         # Multiple cpu processes to help keep gpu fed
         with Pool(processes) as p:
             r = p.imap_unordered(cuda_multithread, args)
             p.close()
             p.join()
-            print("Combining results...")
+            print("Combining results...", flush=True)
             for i in r:
                 primes = primes.union(i)
-        print("", flush=True)
     else:
         # Multiprocessing
         print("Processes: %d" % processes)
@@ -91,6 +97,7 @@ def main(increment: int, processes: int, cuda: bool):
             p.close()
             p.join()
             primes = set()
+            print("Combining results...", flush=True)
             for i in r:
                 primes = primes.union(i)
 
@@ -115,14 +122,27 @@ def main(increment: int, processes: int, cuda: bool):
         json.dump(lastchecked, checkedfile)
 
 
+def increment_type(x):
+    try:
+        x = int(x)
+    except ValueError:
+        x = int(float(x))
+
+    if x > 100000000:
+        raise argparse.ArgumentTypeError(
+            "Maximum increment is 100 Million (100000000)")
+    else:
+        return x
+
+
 if __name__ == "__main__":
     process_choices = []
     for i in range(1, os.cpu_count() + 1):
         process_choices.append(i)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--increment", type=int, default=1000)
-    # group = parser.add_mutually_exclusive_group()
     parser.add_argument("--cuda", action='store_true')
+    parser.add_argument("--increment", type=increment_type, default=1000,
+                        help="Increment <= 100000000")
     parser.add_argument("--processes", type=int,
                         default=math.floor(os.cpu_count() * 0.5),
                         choices=process_choices)

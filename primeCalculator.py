@@ -6,10 +6,13 @@ import argparse
 import math
 from multiprocessing import Pool
 import time
+from primechecker_cuda import *
+import numpy as np
 
 filepath = os.path.dirname(os.path.abspath(__file__))
 primename = os.path.join(filepath, "primes.json")
 lastcheckedfile = os.path.join(filepath, "last_checked.json")
+maxStep = 1000000
 
 
 def primeworker(arg):
@@ -21,8 +24,8 @@ def primeworker(arg):
     return primes
 
 
-def main(increment: int, processes: int):
-    start = time.time()
+def main(increment: int, processes: int, cuda: bool):
+    start = time.perf_counter()
     # Load last number checked
     try:
         with open(lastcheckedfile, "r") as checkedfile:
@@ -35,28 +38,64 @@ def main(increment: int, processes: int):
     print("Calculating primes from %d to %d" % (
         lastchecked, lastchecked + increment))
 
-    # Multiprocessing
-    print("Processes: %d" % processes)
-    with Pool(processes) as p:
-        if processes == 1:
-            args = [{"start": lastchecked, "end": lastchecked+increment}]
-        else:
-            step = math.floor((lastchecked + increment) / processes)
-            bounds = []
-            for i in range(lastchecked, lastchecked + increment, step):
-                bounds.append(i)
-            lastchecked = lastchecked + increment
-            bounds[len(bounds) - 1] = lastchecked
+    if cuda:
+        print("Processes: %d (CUDA Enabled)" % processes)
+        # Check if numbers will be greater than max uint64
+        uint64max = np.iinfo(np.uint64).max
+        if (lastchecked + increment) > uint64max:
+            raise ValueError(
+                "ERROR: lastchecked plus increment (%d) must be less than %d" % (
+                    (lastchecked + increment), uint64max))
+        # Check numbers, break up into groups of [maxStep]
+        part = increment // maxStep
+        remainder = increment % (maxStep * part)
+        if not remainder:
             args = []
-            for i in range(0, len(bounds) - 1):
-                args.append({"start": bounds[i], "end": bounds[i + 1]})
-        r = p.imap_unordered(primeworker, args)
-        p.close()
-        p.join()
+        else:
+            tmp = np.array([lastchecked, lastchecked + remainder], dtype='uint64')
+            args = [tmp]
         primes = set()
-        for i in r:
-            primes = primes.union(i)
-        print("Found: %d" % len(primes))
+        for i in range(part):
+            try:
+                last = max(args[len(args)-1])
+            except IndexError:
+                last = lastchecked
+            tmp = np.array([last, last + maxStep], dtype='uint64')
+            args.append(tmp)
+        # Multiple cpu processes to help keep gpu fed
+        with Pool(processes) as p:
+            r = p.imap_unordered(cuda_multithread, args)
+            p.close()
+            p.join()
+            print("Combining results...")
+            for i in r:
+                primes = primes.union(i)
+        print("", flush=True)
+    else:
+        # Multiprocessing
+        print("Processes: %d" % processes)
+        with Pool(processes) as p:
+            if processes == 1:
+                args = [{"start": lastchecked, "end": lastchecked + increment}]
+            else:
+                step = math.floor((lastchecked + increment) / processes)
+                bounds = []
+                for i in range(lastchecked, lastchecked + increment, step):
+                    bounds.append(i)
+                lastchecked = lastchecked + increment
+                bounds[len(bounds) - 1] = lastchecked
+                args = []
+                for i in range(0, len(bounds) - 1):
+                    args.append({"start": bounds[i], "end": bounds[i + 1]})
+            r = p.imap_unordered(primeworker, args)
+            p.close()
+            p.join()
+            primes = set()
+            for i in r:
+                primes = primes.union(i)
+
+    print("Found: %d" % len(primes))
+    print("Elapsed time:", time.perf_counter() - start)
 
     # Load history file
     print("Writing results to file...")
@@ -74,7 +113,6 @@ def main(increment: int, processes: int):
         json.dump(data, primefile)
     with open(lastcheckedfile, "w") as checkedfile:
         json.dump(lastchecked, checkedfile)
-    print("Elapsed time:", time.time() - start)
 
 
 if __name__ == "__main__":
@@ -83,8 +121,10 @@ if __name__ == "__main__":
         process_choices.append(i)
     parser = argparse.ArgumentParser()
     parser.add_argument("--increment", type=int, default=1000)
+    # group = parser.add_mutually_exclusive_group()
+    parser.add_argument("--cuda", action='store_true')
     parser.add_argument("--processes", type=int,
                         default=math.floor(os.cpu_count() * 0.5),
                         choices=process_choices)
     kwargs = parser.parse_args()
-    sys.exit(main(kwargs.increment, kwargs.processes))
+    sys.exit(main(kwargs.increment, kwargs.processes, kwargs.cuda))

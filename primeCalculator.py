@@ -9,6 +9,7 @@ import time
 from primechecker_cuda import *
 import numpy as np
 
+
 filepath = os.path.dirname(os.path.abspath(__file__))
 primename = os.path.join(filepath, "primes.json")
 lastcheckedfile = os.path.join(filepath, "last_checked.json")

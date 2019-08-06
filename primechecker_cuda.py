@@ -1,7 +1,6 @@
 from numba import vectorize
 import numba
 import numpy as np
-# import time
 
 
 def convert_seconds(s):
@@ -47,39 +46,3 @@ def check_primes_cuda(p):
             else:
                 pass
     return p
-
-
-# def check_prime(p):
-#     for i in range(2, np.uint64(p**0.5)):
-#         if (p % i) == 0:
-#             return 0
-#         else:
-#             pass
-#     return p
-#
-#
-# def check_primes(x):
-#     plist = []
-#     for n in x:
-#         plist.append(check_prime(n))
-#     return np.array(plist, dtype='uint64')
-#
-#
-# def main():
-#     a = np.arange(1e6).astype('uint64')
-#
-#     start = time.perf_counter()
-#     primes = check_primes_cuda(a)
-#     end = time.perf_counter()
-#     print("Cuda time:", convert_seconds(end-start))
-#     # print(primes)
-#
-#     # start = time.perf_counter()
-#     #     # primes = check_primes(a)
-#     #     # end = time.perf_counter()
-#     #     # print("Loop time:", convert_seconds(end - start))
-#     #     # # print(primes)
-#
-#
-# if __name__=="__main__":
-#     main()

@@ -26,7 +26,7 @@ def convert_seconds(s):
 
 
 def cuda_multithread(n):
-    print(min(n), end='\r', flush=True)
+    print(n[0], n[1], end='\r', flush=True)
     a = np.array(range(int(min(n)), int(max(n)+1)), dtype='uint64')
     p = check_primes_cuda(a).tolist()
     return p
